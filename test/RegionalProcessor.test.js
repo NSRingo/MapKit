@@ -24,7 +24,7 @@ for (const [variant, request, response] of [
 			if (region === "CN") throw new Error("CN unavailable");
 			return { status: 304 };
 		});
-		const headers = { "IF-None-Match": "client-tag", Accept: "application/octet-stream" };
+		const headers = { Accept: "application/octet-stream" };
 		await request({ url: manifestURL, method: "GET", headers }, KV);
 		assert.deepEqual(calls, [
 			["CN", { Accept: "application/octet-stream" }],

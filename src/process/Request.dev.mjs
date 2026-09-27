@@ -1,11 +1,11 @@
-import { Console } from "@nsnanocat/util";
-import GEOResourceManifest from "../class/GEOResourceManifest.mjs";
+import { Console, Lodash as _ } from "@nsnanocat/util";
 import database from "../function/database.mjs";
 import setENV from "../function/setENV.mjs";
+import GEOResourceManifest from "../class/GEOResourceManifest.mjs";
 /***************** Processing *****************/
 export async function Request($request, KV) {
 	// 构造回复数据
-	let $response;
+	let $response = undefined;
 	// 解构URL
 	const url = new URL($request.url);
 	Console.info(`url: ${url.toJSON()}`);
@@ -21,12 +21,14 @@ export async function Request($request, KV) {
 	 */
 	const { Settings, Caches, Configs } = await setENV("iRingo", "MapKit", database);
 	Console.logLevel = Settings.LogLevel;
+	// 创建空数据
+	let body = {};
 	// 方法判断
 	switch ($request.method) {
 		case "POST":
 		case "PUT":
 		case "PATCH":
-		// biome-ignore lint/suspicious/noFallthroughSwitchClause: Body processing continues into URL rewriting.
+		// biome-ignore lint/suspicious/noFallthroughSwitchClause: <explanation>
 		case "DELETE":
 			// 格式判断
 			switch (FORMAT) {
@@ -73,7 +75,7 @@ export async function Request($request, KV) {
 				case "application/grpc+proto":
 				case "application/octet-stream": {
 					//Console.debug(`$request: ${JSON.stringify($request, null, 2)}`);
-					const rawBody = $request.bodyBytes ? new Uint8Array($request.bodyBytes) : ($request.body ?? new Uint8Array());
+					let rawBody = $request.bodyBytes ? new Uint8Array($request.bodyBytes) : ($request.body ?? new Uint8Array());
 					//Console.debug(`isBuffer? ${ArrayBuffer.isView(rawBody)}: ${JSON.stringify(rawBody, null, 2)}`);
 					// 写入二进制数据
 					$request.body = rawBody;
@@ -85,9 +87,8 @@ export async function Request($request, KV) {
 		case "HEAD":
 		case "OPTIONS":
 		default:
-			for (const header of Object.keys($request.headers ?? {})) {
-				if (header.toLowerCase() === "if-none-match") delete $request.headers[header];
-			}
+			delete $request?.headers?.["If-None-Match"];
+			delete $request?.headers?.["if-none-match"];
 			// 主机判断
 			switch (url.hostname) {
 				case "configuration.ls.apple.com":

@@ -24,12 +24,12 @@ export default class GEOResourceManifest {
 	/**
 	 * 读取资源清单缓存。
 	 * Read resource manifest cache.
-	 * @param {object} _caches 缓存对象 / Cache object.
+	 * @param {object} caches 缓存对象 / Cache object.
 	 * @param {string} queryString 查询字符串（包含前导问号） / Query string with leading question mark.
 	 * @param {object} KV Shared KV storage instance.
 	 * @returns {Promise<{eTag?: string, base64?: string}|undefined>} 缓存条目 / Cache entry.
 	 */
-	static async getCache(_caches = {}, queryString = "", KV) {
+	static async getCache(caches = {}, queryString = "", KV) {
 		Console.log("☑️ Get Cache");
 		if (!queryString) {
 			Console.error("Get Cache", "Missing query string");
@@ -51,14 +51,14 @@ export default class GEOResourceManifest {
 	/**
 	 * 写入资源清单缓存。
 	 * Write resource manifest cache.
-	 * @param {object} _caches 缓存对象 / Cache object.
+	 * @param {object} caches 缓存对象 / Cache object.
 	 * @param {string} queryString 查询字符串（包含前导问号） / Query string with leading question mark.
 	 * @param {string} eTag 实体标签 / Entity tag.
 	 * @param {Uint8Array|ArrayBuffer} rawBody 原始二进制 / Raw binary body.
 	 * @param {object} KV Shared KV storage instance.
 	 * @returns {Promise<boolean>} 是否写入成功 / Whether cache is written.
 	 */
-	static async setCache(_caches = {}, queryString = "", eTag = "", rawBody = new Uint8Array(), KV) {
+	static async setCache(caches = {}, queryString = "", eTag = "", rawBody = new Uint8Array(), KV) {
 		Console.log("☑️ Set Cache");
 		if (!queryString) {
 			Console.error("Set Cache", "Missing query string");
@@ -276,7 +276,7 @@ export default class GEOResourceManifest {
 				});
 				break;
 		}
-		attributions.sort(a => {
+		attributions.sort((a, b) => {
 			switch (a.name) {
 				case "‎":
 					return -1;
@@ -287,7 +287,7 @@ export default class GEOResourceManifest {
 			}
 		});
 		attributions = attributions
-			.map(attribution => {
+			.map((attribution, index) => {
 				switch (attribution.name) {
 					case "‎":
 						attribution.name = ` iRingo: 📍 GEOResourceManifest\n${new Date()}`;
@@ -663,11 +663,11 @@ export default class GEOResourceManifest {
 				};
 			});
 			if (attributions)
-				tileGroup.attributionIndex = attributions.map((_attribution, index) => {
+				tileGroup.attributionIndex = attributions.map((attribution, index) => {
 					return index;
 				});
 			if (resources)
-				tileGroup.resourceIndex = resources.map((_resource, index) => {
+				tileGroup.resourceIndex = resources.map((resource, index) => {
 					return index;
 				});
 			return tileGroup;
