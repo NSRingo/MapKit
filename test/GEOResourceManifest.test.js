@@ -253,3 +253,20 @@ test("KR URL defaults and provider overrides use the matching dataset", () => {
 		["CN-1", "CN-2"],
 	);
 });
+
+test("KR retains CN service resources when no CN tiles are selected", () => {
+	const filenames = ["POITypeMapping-CN-1.json", "POITypeMapping-CN-2.json", "China.cms-lpr"];
+	const source = {
+		tileSet: [{ style: "VECTOR_STANDARD", baseURL: "https://cn.example" }],
+		resource: [...filenames, "unselected-map-resource"].map(filename => ({ filename })),
+		urlInfoSet: [{ dispatcherURL: { url: "https://cn.example" } }],
+	};
+	const target = { tileSet: [{ style: "VECTOR_STANDARD", baseURL: "https://kr.example" }], resource: [], urlInfoSet: [{}] };
+	GEOResourceManifest.compose(target, { CN: source }, database.MapKit.Configs, { TileSet: { Map: "KR" }, UrlInfoSet: { Dispatcher: "AutoNavi" } }, "KR", "ios");
+	assert.deepEqual(
+		target.resource.map(resource => resource.filename),
+		filenames,
+	);
+	assert.deepEqual(target.tileSet, [{ style: "VECTOR_STANDARD", baseURL: "https://kr.example" }]);
+	assert.equal(target.urlInfoSet[0].dispatcherURL.url, "https://cn.example");
+});

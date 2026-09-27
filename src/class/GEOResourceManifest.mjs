@@ -616,7 +616,6 @@ export default class GEOResourceManifest {
 			const switchMunin = source.muninBucket?.length && muninStyles.length && muninStyles.every(style => styles.includes(style) && source.tileSet?.some(tile => tile.style === style));
 			if (!switchMunin) styles = styles.filter(style => !muninStyles.includes(style));
 			const selectedTiles = source.tileSet?.filter(tile => styles.includes(tile.style)) ?? [];
-			if (!selectedTiles.length) continue;
 			const dataSetIDs = new Set(selectedTiles.map(tile => tile.dataSet).filter(id => id !== undefined));
 			for (const urlInfo of source.urlInfoSet ?? []) {
 				if (dataSetIDs.has(urlInfo.dataSet) && !target.urlInfoSet?.some(item => item.dataSet === urlInfo.dataSet)) {
@@ -637,9 +636,11 @@ export default class GEOResourceManifest {
 				if (index < 0) index = urls.push(url) - 1;
 				return { ...resource, alternateResourceURLIndex: index };
 			};
-			for (const resource of source.resource ?? []) {
+			const resources = selectedTiles.length ? (source.resource ?? []) : region === "CN" ? GEOResourceManifest.resources(source.resource, [], targetCountryCode) : [];
+			for (const resource of resources) {
 				if (!target.resource?.some(item => item.filename === resource.filename)) (target.resource ??= []).push(remapResource(resource));
 			}
+			if (!selectedTiles.length) continue;
 			target.tileSet = GEOResourceManifest.tileSets(source.tileSet, target.tileSet, styles);
 			if (switchMunin) target.muninBucket = source.muninBucket;
 			const displayIndices = (source.displayString ?? []).map(displayString => {
