@@ -115,15 +115,15 @@ const locationShift: ArgumentItem = {
 const tileSetOptions = [
 	{ key: "CN", label: "🇨🇳中国版" },
 	{ key: "XX", label: "🇺🇳国际版" },
-	{ key: "KR", label: "🇰🇷韩国版" },
 ];
+const koreanTileSetOptions = [...tileSetOptions, { key: "KR", label: "🇰🇷韩国版" }];
 
 const map: ArgumentItem = {
 	defaultValue: "CN",
 	description: "标准地图、地貌、建筑与室内地图等瓦片。",
 	key: "TileSet.Map",
 	name: "[瓦片数据集] 地图",
-	options: tileSetOptions,
+	options: koreanTileSetOptions,
 	type: "string",
 };
 
@@ -159,7 +159,7 @@ const poi: ArgumentItem = {
 	description: "兴趣点、街道兴趣点与繁忙程度数据。",
 	key: "TileSet.POI",
 	name: "[瓦片数据集] 兴趣点",
-	options: tileSetOptions,
+	options: koreanTileSetOptions,
 	type: "string",
 };
 
@@ -186,7 +186,7 @@ const road: ArgumentItem = {
 	description: "道路、道路标签与道路选区数据。",
 	key: "TileSet.Road",
 	name: "[瓦片数据集] 道路",
-	options: tileSetOptions,
+	options: koreanTileSetOptions,
 	type: "string",
 };
 
@@ -195,7 +195,7 @@ const earth: ArgumentItem = {
 	description: "地球视图模型、材质、行政区划名称与极地数据。",
 	key: "TileSet.Earth",
 	name: "[瓦片数据集] 地球",
-	options: tileSetOptions,
+	options: koreanTileSetOptions,
 	type: "string",
 };
 

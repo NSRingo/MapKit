@@ -140,14 +140,16 @@ test("tileStyles 按源地区与设置选择配置分组", () => {
 	assert.deepEqual(GEOResourceManifest.tileStyles(configs, {}, "XX"), ["BASE", "MAP", "SATELLITE_2D", "SATELLITE_3D"]);
 });
 
-test("fetch KR only when selected; never fetch the target region", () => {
-	const configs = { TileStyles: { Map: ["VECTOR_STANDARD"] } };
+test("KR is selected only for supported tile groups", () => {
+	const configs = database.MapKit.Configs;
 	const settings = { TileSet: { Map: "KR" } };
 	assert.deepEqual(GEOResourceManifest.requiredSources(configs, settings, "US"), ["CN", "KR"]);
-	assert.deepEqual(GEOResourceManifest.requiredSources(configs, settings, "KR"), ["CN"]);
-	settings.TileSet.Map = "XX";
 	assert.deepEqual(GEOResourceManifest.requiredSources(configs, settings, "KR"), ["CN", "XX"]);
-	assert.deepEqual(GEOResourceManifest.requiredSources(configs, settings, "US"), ["CN"]);
+	for (const group of Object.keys(configs.TileStyles)) {
+		const selected = { TileSet: { [group]: "KR" } };
+		const expected = ["Map", "POI", "Road", "Earth"].includes(group) ? configs.TileStyles[group] : [];
+		assert.deepEqual(GEOResourceManifest.tileStyles(configs, selected, "KR", false), expected, group);
+	}
 });
 
 test("writing a regional cache preserves earlier regions", async t => {
@@ -209,10 +211,10 @@ test("missing or incomplete Munin source keeps native tiles and buckets", () => 
 	const tileSet = ["MUNIN_METADATA", "VECTOR_SPR_ROADS"].map(style => ({ style, validVersion: [{ identifier: 2 }] }));
 	const nativeTiles = tileSet.map(tile => ({ ...tile, validVersion: [{ identifier: 1 }] }));
 	const muninBucket = [{ bucketID: 2 }];
-	const settings = { TileSet: { Munin: "KR" }, UrlInfoSet: {} };
+	const settings = { TileSet: { Munin: "XX" }, UrlInfoSet: {} };
 	for (const source of [undefined, { tileSet, muninBucket: [] }, { tileSet: tileSet.slice(0, 1), muninBucket }]) {
 		const target = { tileSet: structuredClone(nativeTiles), muninBucket: [{ bucketID: 1 }] };
-		GEOResourceManifest.compose(target, { KR: source }, database.MapKit.Configs, settings, "US", "ios");
+		GEOResourceManifest.compose(target, { XX: source }, database.MapKit.Configs, settings, "KR", "ios");
 		assert.deepEqual(target.tileSet, nativeTiles);
 		assert.deepEqual(target.muninBucket, [{ bucketID: 1 }]);
 	}

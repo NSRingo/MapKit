@@ -134,11 +134,10 @@ export interface Settings {
 		 * Possible values:
 		 * - `'CN'` - 🇨🇳中国版
 		 * - `'XX'` - 🇺🇳国际版
-		 * - `'KR'` - 🇰🇷韩国版
 		 *
 		 * @defaultValue "CN"
 		 */
-		Satellite2D?: "CN" | "XX" | "KR";
+		Satellite2D?: "CN" | "XX";
 		/**
 		 * [瓦片数据集] 3D 卫星图像
 		 *
@@ -149,11 +148,10 @@ export interface Settings {
 		 * Possible values:
 		 * - `'CN'` - 🇨🇳中国版
 		 * - `'XX'` - 🇺🇳国际版
-		 * - `'KR'` - 🇰🇷韩国版
 		 *
 		 * @defaultValue "XX"
 		 */
-		Satellite3D?: "CN" | "XX" | "KR";
+		Satellite3D?: "CN" | "XX";
 		/**
 		 * [瓦片数据集] 交通状况
 		 *
@@ -164,11 +162,10 @@ export interface Settings {
 		 * Possible values:
 		 * - `'CN'` - 🇨🇳中国版
 		 * - `'XX'` - 🇺🇳国际版
-		 * - `'KR'` - 🇰🇷韩国版
 		 *
 		 * @defaultValue "CN"
 		 */
-		Traffic?: "CN" | "XX" | "KR";
+		Traffic?: "CN" | "XX";
 		/**
 		 * [瓦片数据集] 兴趣点
 		 *
@@ -194,11 +191,10 @@ export interface Settings {
 		 * Possible values:
 		 * - `'CN'` - 🇨🇳中国版
 		 * - `'XX'` - 🇺🇳国际版
-		 * - `'KR'` - 🇰🇷韩国版
 		 *
 		 * @defaultValue "XX"
 		 */
-		Flyover?: "CN" | "XX" | "KR";
+		Flyover?: "CN" | "XX";
 		/**
 		 * [瓦片数据集] 四处看看
 		 *
@@ -209,11 +205,10 @@ export interface Settings {
 		 * Possible values:
 		 * - `'CN'` - 🇨🇳中国版
 		 * - `'XX'` - 🇺🇳国际版
-		 * - `'KR'` - 🇰🇷韩国版
 		 *
 		 * @defaultValue "XX"
 		 */
-		Munin?: "CN" | "XX" | "KR";
+		Munin?: "CN" | "XX";
 		/**
 		 * [瓦片数据集] 道路
 		 *
@@ -254,11 +249,10 @@ export interface Settings {
 		 * Possible values:
 		 * - `'CN'` - 🇨🇳中国版
 		 * - `'XX'` - 🇺🇳国际版
-		 * - `'KR'` - 🇰🇷韩国版
 		 *
 		 * @defaultValue "CN"
 		 */
-		Transit?: "CN" | "XX" | "KR";
+		Transit?: "CN" | "XX";
 	};
 	/**
 	 * [储存] 配置类型

@@ -173,7 +173,7 @@ export default class GEOResourceManifest {
 					break;
 				case "KR":
 				case "Tmap":
-					settingCountryCode = "KR";
+					settingCountryCode = ["Map", "POI", "Road", "Earth"].includes(setting) ? "KR" : "XX";
 					break;
 				case "XX":
 				case "Apple":
@@ -555,8 +555,6 @@ export default class GEOResourceManifest {
 				break;
 		}
 		switch (settings.TileSet.Munin) {
-			case "KR":
-				break;
 			case "CN":
 				target.splice(0, target.length, ...cnMuninBuckets);
 				break;
