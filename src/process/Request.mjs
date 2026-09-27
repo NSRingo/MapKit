@@ -87,8 +87,9 @@ export async function Request($request, KV) {
 		case "HEAD":
 		case "OPTIONS":
 		default:
-			delete $request?.headers?.["If-None-Match"];
-			delete $request?.headers?.["if-none-match"];
+			for (const header of Object.keys($request.headers ?? {})) {
+				if (header.toLowerCase() === "if-none-match") delete $request.headers[header];
+			}
 			// 主机判断
 			switch (url.hostname) {
 				case "configuration.ls.apple.com":
