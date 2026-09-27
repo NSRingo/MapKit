@@ -1,10 +1,9 @@
-import { Console, Lodash as _ } from "@nsnanocat/util";
+import { Console } from "@nsnanocat/util";
 import XML from "@nsnanocat/xml";
-import database from "../function/database.mjs";
-import setENV from "../function/setENV.mjs";
 import GEOResourceManifest from "../class/GEOResourceManifest.mjs";
 import GEOResourceManifestDownload from "../class/GEOResourceManifestDownload.mjs";
-import { BinaryReader, UnknownFieldHandler } from "@protobuf-ts/runtime";
+import database from "../function/database.mjs";
+import setENV from "../function/setENV.mjs";
 /***************** Processing *****************/
 export async function Response($request, $response, KV) {
 	// 解构URL
@@ -146,7 +145,7 @@ export async function Response($request, $response, KV) {
 				case "application/octet-stream":
 					switch (url.hostname) {
 						case "gspe35-ssl.ls.apple.com":
-							geoManifestPath: switch (url.pathname) {
+							switch (url.pathname) {
 								case "/config/announcements":
 									break;
 								case "/geo_manifest/dynamic/config": {
@@ -173,7 +172,7 @@ export async function Response($request, $response, KV) {
 										cacheURL.searchParams.set("country_code", region === "XX" ? "US" : region);
 										sources[region] = await GEOResourceManifest.decodeCache(Caches, cacheURL.search, KV);
 									}
-									if (!Object.values(sources).some(Boolean)) break geoManifestPath;
+									if (!Object.values(sources).some(Boolean)) break;
 									const target = GEOResourceManifest.compose(body, sources, Configs, Settings, targetCountryCode, url.searchParams.get("os"));
 									Console.debug(`releaseInfo: ${body.releaseInfo}`);
 									Console.debug(`body after: ${JSON.stringify(body)}`);

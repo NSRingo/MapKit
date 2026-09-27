@@ -3,10 +3,10 @@ import test from "node:test";
 import { Storage } from "@nsnanocat/util";
 import { Resources, TileSetStyle } from "@nsringo/mapkit";
 import GEOResourceManifest from "../src/class/GEOResourceManifest.mjs";
-import { Request } from "../src/process/Request.mjs";
 import { Request as RequestDev } from "../src/process/Request.dev.mjs";
-import { Response } from "../src/process/Response.mjs";
+import { Request } from "../src/process/Request.mjs";
 import { Response as ResponseDev } from "../src/process/Response.dev.mjs";
+import { Response } from "../src/process/Response.mjs";
 
 const manifestURL = "https://gspe35-ssl.ls.apple.com/geo_manifest/dynamic/config?os=ios&country_code=US";
 
@@ -17,7 +17,7 @@ for (const [variant, request, response] of [
 	test(`regional downloads use their own ETags and continue after failure (${variant})`, async t => {
 		const settings = { GeoManifest: { Dynamic: { Config: { CountryCode: "KR" } } } };
 		t.mock.method(Storage, "getItem", () => ({ MapKit: { Settings: settings } }));
-		const KV = { getItem: async key => key.endsWith("country_code=US") ? { eTag: "us-tag", base64: "AA==" } : undefined };
+		const KV = { getItem: async key => (key.endsWith("country_code=US") ? { eTag: "us-tag", base64: "AA==" } : undefined) };
 		const calls = [];
 		t.mock.method(GEOResourceManifest, "download", async (request, region) => {
 			calls.push([region, request.headers]);
@@ -44,14 +44,13 @@ for (const [variant, request, response] of [
 			urlInfoSet: [{ dataSet: 10, dispatcherURL: { url: "https://kr.example" } }],
 		});
 		const base64 = Buffer.from(Resources.toBinary(source)).toString("base64");
-		const KV = { getItem: async key => key.endsWith("country_code=KR") ? { base64 } : undefined };
-		const result = await response(
-			{ url: manifestURL, method: "GET", headers: {} },
-			{ headers: { "Content-Type": "application/octet-stream" }, body: Resources.toBinary(target) },
-			KV,
-		);
+		const KV = { getItem: async key => (key.endsWith("country_code=KR") ? { base64 } : undefined) };
+		const result = await response({ url: manifestURL, method: "GET", headers: {} }, { headers: { "Content-Type": "application/octet-stream" }, body: Resources.toBinary(target) }, KV);
 		const body = Resources.fromBinary(result.body);
-		assert.deepEqual(body.tileSet.map(tile => tile.validVersion[0].identifier), [1, 2]);
+		assert.deepEqual(
+			body.tileSet.map(tile => tile.validVersion[0].identifier),
+			[1, 2],
+		);
 		assert.equal(body.tileSet[1].dataSet, body.dataSet[0].identifier);
 		assert.equal(body.urlInfoSet.find(row => row.dataSet === 10).dispatcherURL.url, "https://kr.example");
 	});

@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { Storage } from "@nsnanocat/util";
 import { Resources, TileSetStyle } from "@nsringo/mapkit";
+import GEOResourceManifest from "../src/class/GEOResourceManifest.mjs";
 import GEOResourceManifestDownload from "../src/class/GEOResourceManifestDownload.mjs";
 import database from "../src/function/database.mjs";
-import GEOResourceManifest from "../src/class/GEOResourceManifest.mjs";
 
 test("source 始终注入 target，targetCountryCode 只决定注入规则", () => {
 	const sourceAttributions = [{ name: "Source" }];
@@ -165,7 +165,8 @@ test("KR composition preserves base tiles and protobuf metadata references", () 
 	const manifest = (region, id) => {
 		const body = Resources.create({
 			tileSet: ["VECTOR_COVERAGE", "VECTOR_STANDARD", "MUNIN_METADATA", "VECTOR_SPR_ROADS"].map(style => ({
-				style: TileSetStyle[style], validVersion: [{ identifier: id }],
+				style: TileSetStyle[style],
+				validVersion: [{ identifier: id }],
 			})),
 			resource: [{ filename: region }],
 			displayString: [{ localizedString: [{ locale: "en", stringValue: region }] }],
@@ -181,10 +182,22 @@ test("KR composition preserves base tiles and protobuf metadata references", () 
 	GEOResourceManifest.compose(target, sources, database.MapKit.Configs, settings, "KR", "ios");
 	const result = Resources.fromBinary(GEOResourceManifestDownload.encode(target));
 
-	assert.deepEqual(result.tileSet.map(tile => tile.validVersion[0].identifier), [1, 2, 3, 3]);
-	assert.deepEqual(result.muninBucket.map(bucket => bucket.bucketID), [3]);
-	assert.deepEqual(result.tileGroup[0].tileSet.map(tile => tile.tileSetIndex), [0, 1, 2, 3]);
-	assert.deepEqual(result.tileGroup[0].resourceIndex.map(index => result.resource[index].filename), ["KR", "CN", "XX"]);
+	assert.deepEqual(
+		result.tileSet.map(tile => tile.validVersion[0].identifier),
+		[1, 2, 3, 3],
+	);
+	assert.deepEqual(
+		result.muninBucket.map(bucket => bucket.bucketID),
+		[3],
+	);
+	assert.deepEqual(
+		result.tileGroup[0].tileSet.map(tile => tile.tileSetIndex),
+		[0, 1, 2, 3],
+	);
+	assert.deepEqual(
+		result.tileGroup[0].resourceIndex.map(index => result.resource[index].filename),
+		["KR", "CN", "XX"],
+	);
 	assert.equal(result.attribution.length, 3);
 	for (const attribution of result.attribution) {
 		assert.equal(result.displayString[attribution.linkDisplayStringIndex].localizedString[0].stringValue, attribution.name);
@@ -206,7 +219,9 @@ test("missing or incomplete Munin source keeps native tiles and buckets", () => 
 
 test("KR URL defaults and provider overrides use the matching dataset", () => {
 	const source = [2, 1].map(dataSet => ({
-		dataSet, resourcesURL: { url: `CN-${dataSet}` }, directionsURL: { url: `CN-${dataSet}` },
+		dataSet,
+		resourcesURL: { url: `CN-${dataSet}` },
+		directionsURL: { url: `CN-${dataSet}` },
 	}));
 	const target = [
 		{ dataSet: 1, directionsURL: { url: "KR-1" } },
@@ -214,9 +229,18 @@ test("KR URL defaults and provider overrides use the matching dataset", () => {
 	];
 	const settings = { UrlInfoSet: { Directions: "Apple" } };
 	const native = GEOResourceManifest.urlInfoSets(source, target, settings, "KR", "ios");
-	assert.deepEqual(native.map(row => row.resourcesURL.url), ["CN-1", "KR-2"]);
-	assert.deepEqual(native.map(row => row.directionsURL.url), ["KR-1", "KR-2"]);
+	assert.deepEqual(
+		native.map(row => row.resourcesURL.url),
+		["CN-1", "KR-2"],
+	);
+	assert.deepEqual(
+		native.map(row => row.directionsURL.url),
+		["KR-1", "KR-2"],
+	);
 	settings.UrlInfoSet.Directions = "AutoNavi";
 	const cn = GEOResourceManifest.urlInfoSets(source, target, settings, "KR", "ios");
-	assert.deepEqual(cn.map(row => row.directionsURL.url), ["CN-1", "CN-2"]);
+	assert.deepEqual(
+		cn.map(row => row.directionsURL.url),
+		["CN-1", "CN-2"],
+	);
 });
