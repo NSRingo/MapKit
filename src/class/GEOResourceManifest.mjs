@@ -637,11 +637,20 @@ export default class GEOResourceManifest {
 				return { ...resource, alternateResourceURLIndex: index };
 			};
 			const resources = selectedTiles.length ? (source.resource ?? []) : region === "CN" ? GEOResourceManifest.resources(source.resource, [], targetCountryCode) : [];
-			for (const resource of resources) {
-				if (!target.resource?.some(item => item.filename === resource.filename)) (target.resource ??= []).push(remapResource(resource));
-			}
+			const resourceIndices = resources.map(resource => {
+				let index = target.resource?.findIndex(item => item.filename === resource.filename) ?? -1;
+				if (index < 0) index = (target.resource ??= []).push(remapResource(resource)) - 1;
+				return index;
+			});
 			if (!selectedTiles.length) continue;
-			target.tileSet = GEOResourceManifest.tileSets(source.tileSet, target.tileSet, styles);
+			const tiles = selectedTiles.map(tile => ({
+				...tile,
+				validVersion: tile.validVersion?.map(version => ({
+					...version,
+					genericTile: version.genericTile?.map(genericTile => ({ ...genericTile, resourceIndex: resourceIndices[genericTile.resourceIndex] })),
+				})),
+			}));
+			target.tileSet = GEOResourceManifest.tileSets(tiles, target.tileSet, styles);
 			if (switchMunin) target.muninBucket = source.muninBucket;
 			const displayIndices = (source.displayString ?? []).map(displayString => {
 				let index = target.displayString?.findIndex(item => JSON.stringify(item) === JSON.stringify(displayString)) ?? -1;

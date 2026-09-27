@@ -213,6 +213,37 @@ test("KR composition preserves base tiles and protobuf metadata references", () 
 	}
 });
 
+test("imported generic tiles resolve appended and reused resources after encoding", () => {
+	const decode = body => GEOResourceManifestDownload.decode(Resources.toBinary(Resources.create(body)));
+	const target = decode({
+		tileSet: [{ style: TileSetStyle.VECTOR_COVERAGE, validVersion: [{ identifier: 1, genericTile: [{ resourceIndex: 0 }] }] }],
+		resource: [{ filename: "native" }, { filename: "shared" }],
+	});
+	const source = decode({
+		tileSet: [{ style: TileSetStyle.RASTER_SATELLITE, validVersion: [2, 3].map(identifier => ({ identifier, genericTile: [{ resourceIndex: 0 }, { resourceIndex: 1 }] })) }],
+		resource: [{ filename: "shared" }, { filename: "water" }],
+	});
+	GEOResourceManifest.compose(target, { XX: source }, database.MapKit.Configs, { TileSet: { Satellite2D: "XX" }, UrlInfoSet: {} }, "KR", "ios");
+	const result = Resources.fromBinary(GEOResourceManifestDownload.encode(target));
+	assert.deepEqual(
+		result.resource.map(resource => resource.filename),
+		["native", "shared", "water"],
+	);
+	assert.equal(result.tileSet[0].validVersion[0].genericTile[0].resourceIndex, 0);
+	for (const version of result.tileSet[1].validVersion) {
+		assert.deepEqual(
+			version.genericTile.map(tile => result.resource[tile.resourceIndex].filename),
+			["shared", "water"],
+		);
+	}
+	for (const version of source.tileSet[0].validVersion) {
+		assert.deepEqual(
+			version.genericTile.map(tile => tile.resourceIndex),
+			[0, 1],
+		);
+	}
+});
+
 test("missing or incomplete Munin source keeps native tiles and buckets", () => {
 	const tileSet = ["MUNIN_METADATA", "VECTOR_SPR_ROADS"].map(style => ({ style, validVersion: [{ identifier: 2 }] }));
 	const nativeTiles = tileSet.map(tile => ({ ...tile, validVersion: [{ identifier: 1 }] }));
