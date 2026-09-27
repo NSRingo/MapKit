@@ -37,11 +37,17 @@ for (const [variant, request, response] of [
 		const target = Resources.create({
 			tileSet: [{ style: TileSetStyle.VECTOR_COVERAGE, validVersion: [{ identifier: 1 }] }],
 			tileGroup: [{ identifier: 1 }],
+			resource: [{ filename: "native", alternateResourceURLIndex: 0 }],
+			urlInfoSet: [{ dataSet: 0, alternateResourcesURL: [{ url: "https://us.example" }] }],
 		});
 		const source = Resources.create({
 			tileSet: [{ style: TileSetStyle.VECTOR_STANDARD, dataSet: 10, validVersion: [{ identifier: 2 }] }],
 			dataSet: [{ identifier: 10 }],
-			urlInfoSet: [{ dataSet: 10, dispatcherURL: { url: "https://kr.example" } }],
+			resource: [{ filename: "regional", alternateResourceURLIndex: 0 }],
+			urlInfoSet: [
+				{ dataSet: 0, alternateResourcesURL: [{ url: "https://kr.example" }] },
+				{ dataSet: 10, dispatcherURL: { url: "https://kr.example" } },
+			],
 		});
 		const base64 = Buffer.from(Resources.toBinary(source)).toString("base64");
 		const KV = { getItem: async key => (key.endsWith("country_code=KR") ? { base64 } : undefined) };
@@ -53,5 +59,13 @@ for (const [variant, request, response] of [
 		);
 		assert.equal(body.tileSet[1].dataSet, body.dataSet[0].identifier);
 		assert.equal(body.urlInfoSet.find(row => row.dataSet === 10).dispatcherURL.url, "https://kr.example");
+		assert.deepEqual(
+			body.tileGroup[0].resourceIndex.map(index => body.resource[index].filename),
+			["native", "regional"],
+		);
+		assert.deepEqual(
+			body.resource.map(resource => body.urlInfoSet[0].alternateResourcesURL[resource.alternateResourceURLIndex]?.url),
+			["https://us.example", "https://kr.example"],
+		);
 	});
 }

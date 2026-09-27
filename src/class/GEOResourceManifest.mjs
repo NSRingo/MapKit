@@ -615,7 +615,31 @@ export default class GEOResourceManifest {
 			let styles = GEOResourceManifest.tileStyles(configs, settings, region, false);
 			const switchMunin = source.muninBucket?.length && muninStyles.length && muninStyles.every(style => styles.includes(style) && source.tileSet?.some(tile => tile.style === style));
 			if (!switchMunin) styles = styles.filter(style => !muninStyles.includes(style));
-			if (!source.tileSet?.some(tile => styles.includes(tile.style))) continue;
+			const selectedTiles = source.tileSet?.filter(tile => styles.includes(tile.style)) ?? [];
+			if (!selectedTiles.length) continue;
+			const dataSetIDs = new Set(selectedTiles.map(tile => tile.dataSet).filter(id => id !== undefined));
+			for (const urlInfo of source.urlInfoSet ?? []) {
+				if (dataSetIDs.has(urlInfo.dataSet) && !target.urlInfoSet?.some(item => item.dataSet === urlInfo.dataSet)) {
+					(target.urlInfoSet ??= []).push({ ...urlInfo, alternateResourcesURL: [...(urlInfo.alternateResourcesURL ?? [])] });
+				}
+			}
+			const remapResource = (resource, dataSet) => {
+				const sourceURLInfo = source.urlInfoSet?.find(row => row.dataSet === dataSet) ?? source.urlInfoSet?.[0];
+				const url = sourceURLInfo?.alternateResourcesURL?.[resource.alternateResourceURLIndex];
+				if (!url) return resource;
+				let targetURLInfo = target.urlInfoSet?.find(row => row.dataSet === dataSet) ?? target.urlInfoSet?.[0];
+				if (!targetURLInfo) {
+					targetURLInfo = { ...sourceURLInfo, alternateResourcesURL: [] };
+					(target.urlInfoSet ??= []).push(targetURLInfo);
+				}
+				const urls = (targetURLInfo.alternateResourcesURL ??= []);
+				let index = urls.findIndex(item => JSON.stringify(item) === JSON.stringify(url));
+				if (index < 0) index = urls.push(url) - 1;
+				return { ...resource, alternateResourceURLIndex: index };
+			};
+			for (const resource of source.resource ?? []) {
+				if (!target.resource?.some(item => item.filename === resource.filename)) (target.resource ??= []).push(remapResource(resource));
+			}
 			target.tileSet = GEOResourceManifest.tileSets(source.tileSet, target.tileSet, styles);
 			if (switchMunin) target.muninBucket = source.muninBucket;
 			const displayIndices = (source.displayString ?? []).map(displayString => {
@@ -625,23 +649,12 @@ export default class GEOResourceManifest {
 			});
 			const attributions = (source.attribution ?? []).map(attribution => ({
 				...attribution,
+				resource: (attribution.resource ?? []).map(resource => remapResource(resource, attribution.dataSet)),
 				...(displayIndices[attribution.linkDisplayStringIndex] === undefined ? {} : { linkDisplayStringIndex: displayIndices[attribution.linkDisplayStringIndex] }),
 			}));
 			target.attribution = GEOResourceManifest.attributions(attributions, target.attribution, targetCountryCode);
-			for (const resource of source.resource ?? []) {
-				if (!target.resource?.some(item => item.filename === resource.filename)) (target.resource ??= []).push(resource);
-			}
 			for (const dataSet of source.dataSet ?? []) {
 				if (!target.dataSet?.some(item => item.identifier === dataSet.identifier)) (target.dataSet ??= []).push(dataSet);
-			}
-			const dataSetIDs = new Set(
-				source.tileSet
-					.filter(tile => styles.includes(tile.style))
-					.map(tile => tile.dataSet)
-					.filter(id => id !== undefined),
-			);
-			for (const urlInfo of source.urlInfoSet ?? []) {
-				if (dataSetIDs.has(urlInfo.dataSet) && !target.urlInfoSet?.some(item => item.dataSet === urlInfo.dataSet)) (target.urlInfoSet ??= []).push(urlInfo);
 			}
 		}
 		if (source && targetCountryCode === "KR") target.urlInfoSet = GEOResourceManifest.urlInfoSets(source.urlInfoSet, target.urlInfoSet, settings, targetCountryCode, os);

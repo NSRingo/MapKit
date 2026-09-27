@@ -173,7 +173,8 @@ test("KR composition preserves base tiles and protobuf metadata references", () 
 			})),
 			resource: [{ filename: region }],
 			displayString: [{ localizedString: [{ locale: "en", stringValue: region }] }],
-			attribution: [{ name: region, linkDisplayStringIndex: 0 }],
+			attribution: [{ name: region, dataSet: 1, linkDisplayStringIndex: 0, resource: [{ filename: "badge", alternateResourceURLIndex: 0 }] }],
+			urlInfoSet: [0, 1].map(dataSet => ({ dataSet, alternateResourcesURL: [{ url: `https://${region}.example/${dataSet}` }] })),
 			muninBucket: [{ bucketID: id }],
 			tileGroup: [{ identifier: 1 }],
 		});
@@ -204,6 +205,11 @@ test("KR composition preserves base tiles and protobuf metadata references", () 
 	assert.equal(result.attribution.length, 3);
 	for (const attribution of result.attribution) {
 		assert.equal(result.displayString[attribution.linkDisplayStringIndex].localizedString[0].stringValue, attribution.name);
+		const urls = result.urlInfoSet.find(row => row.dataSet === attribution.dataSet).alternateResourcesURL;
+		assert.deepEqual(
+			attribution.resource.map(resource => urls[resource.alternateResourceURLIndex]?.url),
+			[`https://${attribution.name}.example/1`],
+		);
 	}
 });
 
