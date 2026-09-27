@@ -115,6 +115,7 @@ const locationShift: ArgumentItem = {
 const tileSetOptions = [
 	{ key: "CN", label: "🇨🇳中国版" },
 	{ key: "XX", label: "🇺🇳国际版" },
+	{ key: "KR", label: "🇰🇷韩国版" },
 ];
 
 const map: ArgumentItem = {
@@ -179,6 +180,7 @@ const munin: ArgumentItem = {
 	options: [
 		{ key: "CN", label: "🇨🇳中国版" },
 		{ key: "XX", label: "🇺🇳国际版" },
+		{ key: "KR", label: "🇰🇷韩国版" },
 	],
 	type: "string",
 };

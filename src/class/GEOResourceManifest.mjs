@@ -101,10 +101,7 @@ export default class GEOResourceManifest {
 		}
 		let result;
 		if (KV) result = await KV.setItem(`@iRingo.MapKit.Caches.${queryString}`, { eTag, base64 });
-		else {
-			result = Storage.setItem(`@iRingo.MapKit.Caches`, {});
-			result = Storage.setItem(`@iRingo.MapKit.Caches.${queryString}`, { eTag, base64 });
-		}
+		else result = Storage.setItem(`@iRingo.MapKit.Caches.${queryString}`, { eTag, base64 });
 		Console.log("✅ Set Cache");
 		return result;
 	}
@@ -159,12 +156,13 @@ export default class GEOResourceManifest {
 	 * @param {object} configs 图块样式分组 / Tile style groups.
 	 * @param {object} settings 地图设置 / Maps settings.
 	 * @param {string} sourceCountryCode 源国家代码 / Source country code.
+	 * @param {boolean} includeBase 是否注入基础样式 / Whether to inject base styles.
 	 * @returns {Array<string>} 要从源清单注入的图块样式 / Tile styles to inject from the source manifest.
 	 */
-	static tileStyles(configs = {}, settings = {}, sourceCountryCode = "CN") {
+	static tileStyles(configs = {}, settings = {}, sourceCountryCode = "CN", includeBase = true) {
 		Console.log("☑️ Set TileStyles");
 		const config = configs.TileStyles ?? {};
-		const tileStyles = Array.isArray(config.Base) ? [...config.Base] : [];
+		const tileStyles = includeBase && Array.isArray(config.Base) ? [...config.Base] : [];
 		for (const [setting, group] of Object.entries(config)) {
 			if (setting === "Base" || !Array.isArray(group)) continue;
 			let settingCountryCode;
@@ -172,6 +170,9 @@ export default class GEOResourceManifest {
 				case "CN":
 				case "AutoNavi":
 					settingCountryCode = "CN";
+					break;
+				case "KR":
+					settingCountryCode = "KR";
 					break;
 				case "XX":
 				case "Apple":
@@ -185,6 +186,13 @@ export default class GEOResourceManifest {
 		Console.info(`相对源地区 ${sourceCountryCode} 选入的 tileStyles: ${JSON.stringify(result)}`);
 		Console.log("✅ Set TileStyles");
 		return result;
+	}
+
+	static requiredSources(configs = {}, settings = {}, targetCountryCode = "US") {
+		const sources = targetCountryCode === "CN" ? ["XX"] : ["CN"];
+		const region = targetCountryCode === "KR" ? "XX" : "KR";
+		if (GEOResourceManifest.tileStyles(configs, settings, region, false).length) sources.push(region);
+		return sources;
 	}
 
 	/**
@@ -421,17 +429,14 @@ export default class GEOResourceManifest {
 			default:
 				cnURLInfoSet = source[0] ?? {};
 				xxURLInfoSet = target[0] ?? {};
-				urlInfoSets = target.map(() => ({ ...cnURLInfoSet, ...xxURLInfoSet }));
-				/*
-				urlInfoSets = urlInfoSets.map(urlInfoSet => {
-					urlInfoSet.alternateResourcesURL = cnURLInfoSet.alternateResourcesURL;
-					delete urlInfoSet.polyLocationShiftURL;
-					return urlInfoSet;
-				});
-				*/
+				urlInfoSets = target.map(urlInfoSet => ({ ...cnURLInfoSet, ...(targetCountryCode === "KR" ? urlInfoSet : xxURLInfoSet) }));
 				break;
 		}
-		urlInfoSets = urlInfoSets.map(urlInfoSet => {
+		urlInfoSets = urlInfoSets.map((urlInfoSet, index) => {
+			if (targetCountryCode === "KR") {
+				cnURLInfoSet = source.find(item => item.dataSet === target[index].dataSet) ?? source[0] ?? {};
+				xxURLInfoSet = target[index];
+			}
 			switch (settings.Config?.Announcements?.Environment ?? settings.Config?.Announcements?.["Environment:"]?.default ?? settings.Config?.Announcements?.["Environment:"]) {
 				case "AUTO":
 				default:
@@ -561,6 +566,8 @@ export default class GEOResourceManifest {
 				break;
 		}
 		switch (settings.TileSet.Munin) {
+			case "KR":
+				break;
 			case "CN":
 				target.splice(0, target.length, ...cnMuninBuckets);
 				break;
@@ -595,6 +602,60 @@ export default class GEOResourceManifest {
 				break;
 		}
 		Console.log("✅ Set DisplayStrings");
+		return target;
+	}
+
+	/**
+	 * 合成选定地区的资源清单，最后重建图块组索引。
+	 * Compose selected regional manifests and rebuild tile-group indices once.
+	 */
+	static compose(target, sources, configs, settings, targetCountryCode, os) {
+		const sourceCountryCode = targetCountryCode === "CN" ? "XX" : "CN";
+		const source = sources[sourceCountryCode];
+		if (source && targetCountryCode !== "KR") {
+			target.tileSet = GEOResourceManifest.tileSets(source.tileSet, target.tileSet, GEOResourceManifest.tileStyles(configs, settings, sourceCountryCode));
+			target.attribution = GEOResourceManifest.attributions(source.attribution, target.attribution, targetCountryCode);
+			target.resource = GEOResourceManifest.resources(source.resource, target.resource, targetCountryCode);
+			target.dataSet = GEOResourceManifest.dataSets(source.dataSet, target.dataSet, targetCountryCode);
+			target.urlInfoSet = GEOResourceManifest.urlInfoSets(source.urlInfoSet, target.urlInfoSet, settings, targetCountryCode, os);
+			target.displayString = GEOResourceManifest.displayStrings(source.displayString, target.displayString, targetCountryCode);
+			target.muninBucket = GEOResourceManifest.muninBuckets(source.muninBucket, target.muninBucket, settings, targetCountryCode);
+		}
+		const selectedMunin = settings.TileSet?.Munin === "AutoNavi" ? "CN" : settings.TileSet?.Munin === "Apple" ? "XX" : settings.TileSet?.Munin ?? "XX";
+		const muninStyles = configs.TileStyles?.Munin ?? [];
+		const muninSource = targetCountryCode === "KR" || selectedMunin === "KR" ? sources[selectedMunin] : undefined;
+		const switchMunin = muninSource?.muninBucket?.length && muninStyles.length && muninStyles.every(style => muninSource.tileSet?.some(tile => tile.style === style));
+		for (const region of targetCountryCode === "KR" ? ["CN", "XX"] : ["KR"]) {
+			const source = sources[region];
+			if (!source) continue;
+			let styles = GEOResourceManifest.tileStyles(configs, settings, region, false);
+			if (region === selectedMunin && !switchMunin) styles = styles.filter(style => !muninStyles.includes(style));
+			if (!styles.length || !source.tileSet?.some(tile => styles.includes(tile.style))) continue;
+			target.tileSet = GEOResourceManifest.tileSets(source.tileSet, target.tileSet, styles);
+			const displayIndices = (source.displayString ?? []).map(displayString => {
+				let index = target.displayString?.findIndex(item => JSON.stringify(item) === JSON.stringify(displayString)) ?? -1;
+				if (index < 0) index = (target.displayString ??= []).push(displayString) - 1;
+				return index;
+			});
+			const attributions = (source.attribution ?? []).map(attribution => ({
+				...attribution,
+				...(displayIndices[attribution.linkDisplayStringIndex] === undefined ? {} : { linkDisplayStringIndex: displayIndices[attribution.linkDisplayStringIndex] }),
+			}));
+			target.attribution = GEOResourceManifest.attributions(attributions, target.attribution, targetCountryCode);
+			for (const resource of source.resource ?? []) {
+				if (!target.resource?.some(item => item.filename === resource.filename)) (target.resource ??= []).push(resource);
+			}
+			for (const dataSet of source.dataSet ?? []) {
+				if (!target.dataSet?.some(item => item.identifier === dataSet.identifier)) (target.dataSet ??= []).push(dataSet);
+			}
+			const dataSetIDs = new Set(source.tileSet.filter(tile => styles.includes(tile.style)).map(tile => tile.dataSet).filter(id => id !== undefined));
+			for (const urlInfo of source.urlInfoSet ?? []) {
+				if (dataSetIDs.has(urlInfo.dataSet) && !target.urlInfoSet?.some(item => item.dataSet === urlInfo.dataSet)) (target.urlInfoSet ??= []).push(urlInfo);
+			}
+		}
+		if (switchMunin) target.muninBucket = muninSource.muninBucket;
+		if (source && targetCountryCode === "KR") target.urlInfoSet = GEOResourceManifest.urlInfoSets(source.urlInfoSet, target.urlInfoSet, settings, targetCountryCode, os);
+		target.tileGroup = GEOResourceManifest.tileGroups(target.tileGroup ?? [], target.tileSet ?? [], target.attribution ?? [], target.resource ?? []);
 		return target;
 	}
 

@@ -167,46 +167,14 @@ export async function Response($request, $response, KV) {
                                     };
 									*/
 									const targetCountryCode = url.searchParams.get("country_code");
-									const target = body;
-									let source;
-									let sourceCountryCode;
-									switch (targetCountryCode) {
-										case "CN": {
-											const xxURL = new URL(url.toString());
-											xxURL.searchParams.set("country_code", "US");
-											sourceCountryCode = "XX";
-											source = await GEOResourceManifest.decodeCache(Caches, xxURL.search, KV);
-											const isReady = Boolean(source);
-											if (!isReady) {
-												Console.warn("Missing cache: XX");
-											}
-											if (!isReady) break geoManifestPath;
-											break;
-										}
-										default: {
-											const cnURL = new URL(url.toString());
-											cnURL.searchParams.set("country_code", "CN");
-											sourceCountryCode = "CN";
-											source = await GEOResourceManifest.decodeCache(Caches, cnURL.search, KV);
-											const isReady = Boolean(source);
-											if (!isReady) {
-												Console.warn("Missing cache: CN");
-											}
-											if (!isReady) break geoManifestPath;
-											break;
-										}
+									const sources = {};
+									for (const region of GEOResourceManifest.requiredSources(Configs, Settings, targetCountryCode)) {
+										const cacheURL = new URL(url.toString());
+										cacheURL.searchParams.set("country_code", region === "XX" ? "US" : region);
+										sources[region] = await GEOResourceManifest.decodeCache(Caches, cacheURL.search, KV);
 									}
-									const tileStyles = GEOResourceManifest.tileStyles(Configs, Settings, sourceCountryCode);
-									target.tileSet = GEOResourceManifest.tileSets(source.tileSet, target.tileSet, tileStyles);
-									target.attribution = GEOResourceManifest.attributions(source.attribution, target.attribution, targetCountryCode);
-									target.resource = GEOResourceManifest.resources(source.resource, target.resource, targetCountryCode);
-									target.dataSet = GEOResourceManifest.dataSets(source.dataSet, target.dataSet, targetCountryCode);
-									target.urlInfoSet = GEOResourceManifest.urlInfoSets(source.urlInfoSet, target.urlInfoSet, Settings, targetCountryCode, url.searchParams.get("os"));
-									target.muninBucket = GEOResourceManifest.muninBuckets(source.muninBucket, target.muninBucket, Settings, targetCountryCode);
-									target.displayString = GEOResourceManifest.displayStrings(source.displayString, target.displayString, targetCountryCode);
-									target.tileGroup = GEOResourceManifest.tileGroups(target.tileGroup, target.tileSet, target.attribution, target.resource);
-									// releaseInfo
-									//body.releaseInfo = body.releaseInfo.replace(/(\d+\.\d+)/, `$1.${String(Date.now()/1000)}`);
+									if (!Object.values(sources).some(Boolean)) break geoManifestPath;
+									const target = GEOResourceManifest.compose(body, sources, Configs, Settings, targetCountryCode, url.searchParams.get("os"));
 									Console.debug(`releaseInfo: ${body.releaseInfo}`);
 									Console.debug(`body after: ${JSON.stringify(body)}`);
 									rawBody = GEOResourceManifestDownload.encode(target);
