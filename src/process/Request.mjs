@@ -123,84 +123,32 @@ export async function Request($request, KV) {
 									break;
 							}
 							const request = { ...$request, url: url.toString() };
-							switch (url.searchParams.get("country_code")) {
-								case "CN":
-									for (const cacheCountryCode of ["XX"]) {
-										const cacheURL = new URL(url.toString());
-										const requestCountryCode = cacheCountryCode === "XX" ? "US" : cacheCountryCode;
-										cacheURL.searchParams.set("country_code", requestCountryCode);
-										const cache = await GEOResourceManifest.getCache(Caches, cacheURL.search, KV);
-										let response;
-										if (cache?.eTag) {
-											response = await GEOResourceManifest.download({ ...request, headers: { ...request.headers, "If-None-Match": cache.eTag } }, requestCountryCode);
-										} else {
-											response = await GEOResourceManifest.download(request, requestCountryCode);
-										}
-										switch (response?.status) {
-											case 200:
-												if (!response?.eTag || !response?.body?.length) Console.warn(`Skip cache update: ${cacheCountryCode}`);
-												else await GEOResourceManifest.setCache(Caches, cacheURL.search, response.eTag, response.body, KV);
-												break;
-											case 304:
-												Console.info(`Cache not modified: ${cacheCountryCode}`);
-												break;
-											default:
-												Console.warn(`Cache request failed: ${cacheCountryCode}, status: ${response?.status}`);
-												break;
-										}
-									}
-									break;
-								case "KR":
-									for (const cacheCountryCode of ["CN", "XX"]) {
-										const cacheURL = new URL(url.toString());
-										const requestCountryCode = cacheCountryCode === "XX" ? "US" : cacheCountryCode;
-										cacheURL.searchParams.set("country_code", requestCountryCode);
-										const cache = await GEOResourceManifest.getCache(Caches, cacheURL.search, KV);
-										let response;
-										if (cache?.eTag) {
-											response = await GEOResourceManifest.download({ ...request, headers: { ...request.headers, "If-None-Match": cache.eTag } }, requestCountryCode);
-										} else {
-											response = await GEOResourceManifest.download(request, requestCountryCode);
-										}
-										switch (response?.status) {
-											case 200:
-												if (!response?.eTag || !response?.body?.length) Console.warn(`Skip cache update: ${cacheCountryCode}`);
-												else await GEOResourceManifest.setCache(Caches, cacheURL.search, response.eTag, response.body, KV);
-												break;
-											case 304:
-												Console.info(`Cache not modified: ${cacheCountryCode}`);
-												break;
-											default:
-												Console.warn(`Cache request failed: ${cacheCountryCode}, status: ${response?.status}`);
-												break;
-										}
-									}
-									break;
-								default:
-									for (const cacheCountryCode of ["CN"]) {
-										const cacheURL = new URL(url.toString());
-										cacheURL.searchParams.set("country_code", cacheCountryCode);
-										const cache = await GEOResourceManifest.getCache(Caches, cacheURL.search, KV);
-										let response;
-										if (cache?.eTag) {
-											response = await GEOResourceManifest.download({ ...request, headers: { ...request.headers, "If-None-Match": cache.eTag } }, cacheCountryCode);
-										} else {
-											response = await GEOResourceManifest.download(request, cacheCountryCode);
-										}
-										switch (response?.status) {
-											case 200:
-												if (!response?.eTag || !response?.body?.length) Console.warn(`Skip cache update: ${cacheCountryCode}`);
-												else await GEOResourceManifest.setCache(Caches, cacheURL.search, response.eTag, response.body, KV);
-												break;
-											case 304:
-												Console.info(`Cache not modified: ${cacheCountryCode}`);
-												break;
-											default:
-												Console.warn(`Cache request failed: ${cacheCountryCode}, status: ${response?.status}`);
-												break;
-										}
-									}
-									break;
+							for (const cacheCountryCode of GEOResourceManifest.requiredSources(Configs, Settings, url.searchParams.get("country_code"))) {
+								const cacheURL = new URL(url.toString());
+								const requestCountryCode = cacheCountryCode === "XX" ? "US" : cacheCountryCode;
+								cacheURL.searchParams.set("country_code", requestCountryCode);
+								const cache = await GEOResourceManifest.getCache(Caches, cacheURL.search, KV);
+								const headers = { ...request.headers };
+								if (cache?.eTag) headers["If-None-Match"] = cache.eTag;
+								let response;
+								try {
+									response = await GEOResourceManifest.download({ ...request, headers }, requestCountryCode);
+								} catch (error) {
+									Console.warn(`Cache request failed: ${cacheCountryCode}`, error);
+									continue;
+								}
+								switch (response?.status) {
+									case 200:
+										if (!response?.eTag || !response?.body?.length) Console.warn(`Skip cache update: ${cacheCountryCode}`);
+										else await GEOResourceManifest.setCache(Caches, cacheURL.search, response.eTag, response.body, KV);
+										break;
+									case 304:
+										Console.info(`Cache not modified: ${cacheCountryCode}`);
+										break;
+									default:
+										Console.warn(`Cache request failed: ${cacheCountryCode}, status: ${response?.status}`);
+										break;
+								}
 							}
 							break;
 						}

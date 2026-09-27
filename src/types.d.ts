@@ -119,10 +119,11 @@ export interface Settings {
 		 * Possible values:
 		 * - `'CN'` - 🇨🇳中国版
 		 * - `'XX'` - 🇺🇳国际版
+		 * - `'KR'` - 🇰🇷韩国版
 		 *
 		 * @defaultValue "CN"
 		 */
-		Map?: "CN" | "XX";
+		Map?: "CN" | "XX" | "KR";
 		/**
 		 * [瓦片数据集] 2D 卫星图像
 		 *
@@ -175,10 +176,11 @@ export interface Settings {
 		 * Possible values:
 		 * - `'CN'` - 🇨🇳中国版
 		 * - `'XX'` - 🇺🇳国际版
+		 * - `'KR'` - 🇰🇷韩国版
 		 *
 		 * @defaultValue "CN"
 		 */
-		POI?: "CN" | "XX";
+		POI?: "CN" | "XX" | "KR";
 		/**
 		 * [瓦片数据集] 俯瞰
 		 *
@@ -217,10 +219,11 @@ export interface Settings {
 		 * Possible values:
 		 * - `'CN'` - 🇨🇳中国版
 		 * - `'XX'` - 🇺🇳国际版
+		 * - `'KR'` - 🇰🇷韩国版
 		 *
 		 * @defaultValue "CN"
 		 */
-		Road?: "CN" | "XX";
+		Road?: "CN" | "XX" | "KR";
 		/**
 		 * [瓦片数据集] 地球
 		 *
@@ -231,10 +234,11 @@ export interface Settings {
 		 * Possible values:
 		 * - `'CN'` - 🇨🇳中国版
 		 * - `'XX'` - 🇺🇳国际版
+		 * - `'KR'` - 🇰🇷韩国版
 		 *
 		 * @defaultValue "CN"
 		 */
-		Earth?: "CN" | "XX";
+		Earth?: "CN" | "XX" | "KR";
 		/**
 		 * [瓦片数据集] 公共交通
 		 *
