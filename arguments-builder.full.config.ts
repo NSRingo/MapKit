@@ -177,11 +177,7 @@ const munin: ArgumentItem = {
 	description: "四处看看元数据与可用道路数据。",
 	key: "TileSet.Munin",
 	name: "[瓦片数据集] 四处看看",
-	options: [
-		{ key: "CN", label: "🇨🇳中国版" },
-		{ key: "XX", label: "🇺🇳国际版" },
-		{ key: "KR", label: "🇰🇷韩国版" },
-	],
+	options: tileSetOptions,
 	type: "string",
 };
 

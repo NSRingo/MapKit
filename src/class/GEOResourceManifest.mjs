@@ -621,17 +621,16 @@ export default class GEOResourceManifest {
 			target.displayString = GEOResourceManifest.displayStrings(source.displayString, target.displayString, targetCountryCode);
 			target.muninBucket = GEOResourceManifest.muninBuckets(source.muninBucket, target.muninBucket, settings, targetCountryCode);
 		}
-		const selectedMunin = settings.TileSet?.Munin === "AutoNavi" ? "CN" : settings.TileSet?.Munin === "Apple" ? "XX" : settings.TileSet?.Munin ?? "XX";
 		const muninStyles = configs.TileStyles?.Munin ?? [];
-		const muninSource = targetCountryCode === "KR" || selectedMunin === "KR" ? sources[selectedMunin] : undefined;
-		const switchMunin = muninSource?.muninBucket?.length && muninStyles.length && muninStyles.every(style => muninSource.tileSet?.some(tile => tile.style === style));
 		for (const region of targetCountryCode === "KR" ? ["CN", "XX"] : ["KR"]) {
 			const source = sources[region];
 			if (!source) continue;
 			let styles = GEOResourceManifest.tileStyles(configs, settings, region, false);
-			if (region === selectedMunin && !switchMunin) styles = styles.filter(style => !muninStyles.includes(style));
-			if (!styles.length || !source.tileSet?.some(tile => styles.includes(tile.style))) continue;
+			const switchMunin = source.muninBucket?.length && muninStyles.length && muninStyles.every(style => styles.includes(style) && source.tileSet?.some(tile => tile.style === style));
+			if (!switchMunin) styles = styles.filter(style => !muninStyles.includes(style));
+			if (!source.tileSet?.some(tile => styles.includes(tile.style))) continue;
 			target.tileSet = GEOResourceManifest.tileSets(source.tileSet, target.tileSet, styles);
+			if (switchMunin) target.muninBucket = source.muninBucket;
 			const displayIndices = (source.displayString ?? []).map(displayString => {
 				let index = target.displayString?.findIndex(item => JSON.stringify(item) === JSON.stringify(displayString)) ?? -1;
 				if (index < 0) index = (target.displayString ??= []).push(displayString) - 1;
@@ -653,9 +652,8 @@ export default class GEOResourceManifest {
 				if (dataSetIDs.has(urlInfo.dataSet) && !target.urlInfoSet?.some(item => item.dataSet === urlInfo.dataSet)) (target.urlInfoSet ??= []).push(urlInfo);
 			}
 		}
-		if (switchMunin) target.muninBucket = muninSource.muninBucket;
 		if (source && targetCountryCode === "KR") target.urlInfoSet = GEOResourceManifest.urlInfoSets(source.urlInfoSet, target.urlInfoSet, settings, targetCountryCode, os);
-		target.tileGroup = GEOResourceManifest.tileGroups(target.tileGroup ?? [], target.tileSet ?? [], target.attribution ?? [], target.resource ?? []);
+		target.tileGroup = GEOResourceManifest.tileGroups(target.tileGroup, target.tileSet, target.attribution, target.resource);
 		return target;
 	}
 

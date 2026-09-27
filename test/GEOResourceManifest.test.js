@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { Storage } from "@nsnanocat/util";
+import { Resources, TileSetStyle } from "@nsringo/mapkit";
+import GEOResourceManifestDownload from "../src/class/GEOResourceManifestDownload.mjs";
+import database from "../src/function/database.mjs";
 import GEOResourceManifest from "../src/class/GEOResourceManifest.mjs";
 
 test("source 始终注入 target，targetCountryCode 只决定注入规则", () => {
@@ -135,127 +139,83 @@ test("tileStyles 按源地区与设置选择配置分组", () => {
 	assert.deepEqual(GEOResourceManifest.tileStyles(configs, {}, "XX"), ["BASE", "MAP", "SATELLITE_2D", "SATELLITE_3D"]);
 });
 
-test("KR tile selections request only the extra regional manifest", () => {
-	const configs = { TileStyles: { Base: ["BASE"], Map: ["MAP"], Traffic: ["TRAFFIC"] } };
-	const settings = { TileSet: { Map: "KR", Traffic: "CN" } };
-	assert.deepEqual(GEOResourceManifest.tileStyles(configs, settings, "KR", false), ["MAP"]);
-	assert.deepEqual(GEOResourceManifest.requiredSources(configs, settings, "KR"), ["CN"]);
+test("fetch KR only when selected; never fetch the target region", () => {
+	const configs = { TileStyles: { Map: ["VECTOR_STANDARD"] } };
+	const settings = { TileSet: { Map: "KR" } };
 	assert.deepEqual(GEOResourceManifest.requiredSources(configs, settings, "US"), ["CN", "KR"]);
-	settings.TileSet.Traffic = "XX";
+	assert.deepEqual(GEOResourceManifest.requiredSources(configs, settings, "KR"), ["CN"]);
+	settings.TileSet.Map = "XX";
 	assert.deepEqual(GEOResourceManifest.requiredSources(configs, settings, "KR"), ["CN", "XX"]);
+	assert.deepEqual(GEOResourceManifest.requiredSources(configs, settings, "US"), ["CN"]);
 });
 
-test("KR composition keeps target base, imports selected groups and referenced metadata", () => {
-	const makeManifest = region => ({
-		tileSet: [{ style: "BASE", validVersion: [{ identifier: `${region}-base` }] }, { style: "MAP", validVersion: [{ identifier: `${region}-map` }] }, { style: "TRAFFIC", validVersion: [{ identifier: `${region}-traffic` }] }, { style: "MUNIN_METADATA", validVersion: [{ identifier: `${region}-munin` }] }],
-		attribution: [{ name: region }],
-		resource: [{ filename: `${region}.json` }],
-		dataSet: [{ identifier: region }],
-		displayString: [{ identifier: region }],
-		muninBucket: [{ bucketID: region }],
-		urlInfoSet: [{ dispatcherURL: region, directionsURL: region, problemSubmissionURL: region, polyLocationShiftURL: region }],
-		tileGroup: [{ identifier: 1 }],
-	});
-	const target = makeManifest("KR");
-	const configs = { TileStyles: { Base: ["BASE"], Map: ["MAP"], Traffic: ["TRAFFIC"], Munin: ["MUNIN_METADATA"] } };
-	const settings = { TileSet: { Map: "CN", Traffic: "XX", Munin: "XX" }, UrlInfoSet: { Dispatcher: "AUTO", Directions: "Apple", RAP: "Apple", LocationShift: "Apple" } };
-	GEOResourceManifest.compose(target, { CN: makeManifest("CN"), XX: makeManifest("XX") }, configs, settings, "KR", "ios");
-	assert.deepEqual(target.tileSet.map(tile => tile.validVersion[0].identifier), ["KR-base", "CN-map", "XX-traffic", "XX-munin"]);
-	assert.deepEqual(target.muninBucket, [{ bucketID: "XX" }]);
-	assert.equal(target.urlInfoSet[0].dispatcherURL, "KR");
-	assert.deepEqual(new Set(target.resource.map(resource => resource.filename)), new Set(["KR.json", "CN.json", "XX.json"]));
-	assert.deepEqual(new Set(target.dataSet.map(dataSet => dataSet.identifier)), new Set(["KR", "CN", "XX"]));
-	assert.deepEqual(new Set(target.displayString.map(value => value.identifier)), new Set(["KR", "CN", "XX"]));
-	assert.deepEqual(target.tileGroup[0].tileSet.map(item => item.tileSetIndex), [0, 1, 2, 3]);
-	assert.deepEqual(target.tileGroup[0].resourceIndex, [0, 1, 2]);
-});
-
-test("missing KR source keeps target tiles and buckets while legacy base still composes", () => {
-	const target = {
-		tileSet: [{ style: "BASE", validVersion: [{ identifier: "US-base" }] }, { style: "MAP", validVersion: [{ identifier: "US-map" }] }],
-		muninBucket: [{ bucketID: "US" }],
-		tileGroup: [{ identifier: 1 }],
-	};
-	const source = { tileSet: [{ style: "BASE", validVersion: [{ identifier: "CN-base" }] }] };
-	GEOResourceManifest.compose(target, { CN: source }, { TileStyles: { Base: ["BASE"], Map: ["MAP"] } }, { TileSet: { Map: "KR", Munin: "KR" }, UrlInfoSet: {} }, "US", "ios");
-	assert.deepEqual(target.tileSet.map(tile => tile.validVersion[0].identifier), ["CN-base", "US-map"]);
-	assert.deepEqual(target.muninBucket, [{ bucketID: "US" }]);
-	assert.deepEqual(target.tileGroup[0].tileSet.map(item => item.tileSetIndex), [0, 1]);
-});
-
-test("Munin tiles and buckets switch together only when source has both", () => {
-	const configs = { TileStyles: { Munin: ["MUNIN_METADATA", "VECTOR_SPR_ROADS"] } };
-	const settings = { TileSet: { Munin: "KR" }, UrlInfoSet: {} };
-	for (const source of [
-		{ tileSet: [{ style: "MUNIN_METADATA", validVersion: [{ identifier: 2 }] }], muninBucket: [] },
-		{ tileSet: [], muninBucket: [{ bucketID: "KR" }] },
-		{ tileSet: [{ style: "VECTOR_SPR_ROADS", validVersion: [{ identifier: 2 }] }], muninBucket: [{ bucketID: "KR" }] },
-	]) {
-		const target = {
-			tileSet: [{ style: "MUNIN_METADATA", validVersion: [{ identifier: 1 }] }],
-			muninBucket: [{ bucketID: "US" }],
-			tileGroup: [{ identifier: 1 }],
-		};
-		GEOResourceManifest.compose(target, { KR: source }, configs, settings, "US", "ios");
-		assert.equal(target.tileSet[0].validVersion[0].identifier, 1);
-		assert.deepEqual(target.muninBucket, [{ bucketID: "US" }]);
+test("writing a regional cache preserves earlier regions", async t => {
+	const store = {};
+	t.mock.method(Storage.nodeBackend, "load", () => store);
+	t.mock.method(Storage.nodeBackend, "write", () => {});
+	for (const region of ["CN", "KR", "US"]) {
+		await GEOResourceManifest.setCache({}, `?country_code=${region}`, region, new Uint8Array([1]));
+	}
+	for (const region of ["CN", "KR", "US"]) {
+		assert.deepEqual(await GEOResourceManifest.getCache({}, `?country_code=${region}`), { eTag: region, base64: "AQ==" });
 	}
 });
 
-test("Munin Apple alias selects XX tiles and buckets together on KR target", () => {
-	const target = { tileSet: [{ style: "MUNIN_METADATA", validVersion: [{ identifier: 1 }] }], muninBucket: [{ bucketID: "KR" }], tileGroup: [{ identifier: 1 }] };
-	const source = { tileSet: [{ style: "MUNIN_METADATA", validVersion: [{ identifier: 2 }] }], muninBucket: [{ bucketID: "XX" }] };
-	GEOResourceManifest.compose(target, { XX: source }, { TileStyles: { Munin: ["MUNIN_METADATA"] } }, { TileSet: { Munin: "Apple" }, UrlInfoSet: {} }, "KR", "ios");
-	assert.equal(target.tileSet[0].validVersion[0].identifier, 2);
-	assert.deepEqual(target.muninBucket, [{ bucketID: "XX" }]);
+test("KR composition preserves base tiles and protobuf metadata references", () => {
+	const manifest = (region, id) => {
+		const body = Resources.create({
+			tileSet: ["VECTOR_COVERAGE", "VECTOR_STANDARD", "MUNIN_METADATA", "VECTOR_SPR_ROADS"].map(style => ({
+				style: TileSetStyle[style], validVersion: [{ identifier: id }],
+			})),
+			resource: [{ filename: region }],
+			displayString: [{ localizedString: [{ locale: "en", stringValue: region }] }],
+			attribution: [{ name: region, linkDisplayStringIndex: 0 }],
+			muninBucket: [{ bucketID: id }],
+			tileGroup: [{ identifier: 1 }],
+		});
+		return GEOResourceManifestDownload.decode(Resources.toBinary(body));
+	};
+	const target = manifest("KR", 1);
+	const sources = { CN: manifest("CN", 2), XX: manifest("XX", 3) };
+	const settings = { TileSet: { Map: "CN", Munin: "Apple" }, UrlInfoSet: {} };
+	GEOResourceManifest.compose(target, sources, database.MapKit.Configs, settings, "KR", "ios");
+	const result = Resources.fromBinary(GEOResourceManifestDownload.encode(target));
+
+	assert.deepEqual(result.tileSet.map(tile => tile.validVersion[0].identifier), [1, 2, 3, 3]);
+	assert.deepEqual(result.muninBucket.map(bucket => bucket.bucketID), [3]);
+	assert.deepEqual(result.tileGroup[0].tileSet.map(tile => tile.tileSetIndex), [0, 1, 2, 3]);
+	assert.deepEqual(result.tileGroup[0].resourceIndex.map(index => result.resource[index].filename), ["KR", "CN", "XX"]);
+	assert.equal(result.attribution.length, 3);
+	for (const attribution of result.attribution) {
+		assert.equal(result.displayString[attribution.linkDisplayStringIndex].localizedString[0].stringValue, attribution.name);
+	}
 });
 
-test("KR composition matches URL rows by dataSet and retains source-only dataSet rows", () => {
-	const target = {
-		tileSet: [{ style: "MAP", dataSet: 1, validVersion: [{ identifier: 1 }] }],
-		dataSet: [{ identifier: 1 }],
-		urlInfoSet: [{ dataSet: 2, directionsURL: "KR-2" }, { dataSet: 1, directionsURL: "KR-1" }],
-		tileGroup: [{ identifier: 1 }],
-	};
-	const source = {
-		tileSet: [{ style: "MAP", dataSet: 10, validVersion: [{ identifier: 10 }] }],
-		dataSet: [{ identifier: 10 }],
-		urlInfoSet: [{ dataSet: 1, directionsURL: "CN-1" }, { dataSet: 10, directionsURL: "CN-10" }, { dataSet: 2, directionsURL: "CN-2" }],
-	};
-	GEOResourceManifest.compose(target, { CN: source }, { TileStyles: { Map: ["MAP"] } }, { TileSet: { Map: "CN", Munin: "KR" }, UrlInfoSet: { Directions: "AutoNavi" } }, "KR", "ios");
-	assert.equal(target.tileSet[0].dataSet, 10);
-	assert.deepEqual(target.dataSet.map(item => item.identifier), [1, 10]);
-	assert.deepEqual(target.urlInfoSet.map(item => [item.dataSet, item.directionsURL]), [[2, "CN-2"], [1, "CN-1"], [10, "CN-10"]]);
+test("missing or incomplete Munin source keeps native tiles and buckets", () => {
+	const tileSet = ["MUNIN_METADATA", "VECTOR_SPR_ROADS"].map(style => ({ style, validVersion: [{ identifier: 2 }] }));
+	const nativeTiles = tileSet.map(tile => ({ ...tile, validVersion: [{ identifier: 1 }] }));
+	const muninBucket = [{ bucketID: 2 }];
+	const settings = { TileSet: { Munin: "KR" }, UrlInfoSet: {} };
+	for (const source of [undefined, { tileSet, muninBucket: [] }, { tileSet: tileSet.slice(0, 1), muninBucket }]) {
+		const target = { tileSet: structuredClone(nativeTiles), muninBucket: [{ bucketID: 1 }] };
+		GEOResourceManifest.compose(target, { KR: source }, database.MapKit.Configs, settings, "US", "ios");
+		assert.deepEqual(target.tileSet, nativeTiles);
+		assert.deepEqual(target.muninBucket, [{ bucketID: 1 }]);
+	}
 });
 
-test("KR keeps native Apple URLs and matches AutoNavi rows by dataSet", () => {
-	const source = [2, 1].map(dataSet => ({ dataSet, dispatcherURL: `CN-${dataSet}`, directionsURL: `CN-${dataSet}`, problemSubmissionURL: `CN-${dataSet}`, polyLocationShiftURL: `CN-${dataSet}` }));
-	const target = [1, 2].map(dataSet => ({ dataSet, dispatcherURL: `KR-${dataSet}`, directionsURL: `KR-${dataSet}`, problemSubmissionURL: `KR-${dataSet}`, polyLocationShiftURL: `KR-${dataSet}` }));
-	const settings = { UrlInfoSet: { Dispatcher: "AUTO", Directions: "Apple", RAP: "Apple", LocationShift: "AUTO" } };
-	const ios = GEOResourceManifest.urlInfoSets(source, target, settings, "KR", "ios");
-	assert.deepEqual(ios.map(row => [row.dispatcherURL, row.directionsURL, row.problemSubmissionURL, row.polyLocationShiftURL]), [["KR-1", "KR-1", "KR-1", "CN-1"], ["KR-2", "KR-2", "KR-2", "CN-2"]]);
-	const watch = GEOResourceManifest.urlInfoSets(source, target, settings, "KR", "watchos");
-	assert.deepEqual(watch.map(row => row.polyLocationShiftURL), ["KR-1", "KR-2"]);
-	settings.UrlInfoSet.Dispatcher = "AutoNavi";
+test("KR provider overrides use the matching dataset", () => {
+	const source = [2, 1].map(dataSet => ({
+		dataSet, directionsURL: { url: `CN-${dataSet}` },
+	}));
+	const target = [
+		{ dataSet: 1, directionsURL: { url: "KR-1" } },
+		{ dataSet: 2, directionsURL: { url: "KR-2" } },
+	];
+	const settings = { UrlInfoSet: { Directions: "Apple" } };
+	const native = GEOResourceManifest.urlInfoSets(source, target, settings, "KR", "ios");
+	assert.deepEqual(native.map(row => row.directionsURL.url), ["KR-1", "KR-2"]);
 	settings.UrlInfoSet.Directions = "AutoNavi";
-	settings.UrlInfoSet.RAP = "AutoNavi";
 	const cn = GEOResourceManifest.urlInfoSets(source, target, settings, "KR", "ios");
-	assert.deepEqual(cn.map(row => [row.dispatcherURL, row.directionsURL, row.problemSubmissionURL]), [["CN-1", "CN-1", "CN-1"], ["CN-2", "CN-2", "CN-2"]]);
-});
-
-test("US composition retains KR tile dataSet URL after legacy provider merge", () => {
-	const target = {
-		tileSet: [{ style: "BASE", validVersion: [{ identifier: 1 }] }, { style: "MAP", dataSet: 0, validVersion: [{ identifier: 2 }] }],
-		dataSet: [{ identifier: 0 }],
-		urlInfoSet: [{ dataSet: 0, dispatcherURL: "US" }],
-		tileGroup: [{ identifier: 1 }],
-	};
-	const sources = {
-		CN: { tileSet: [{ style: "BASE", validVersion: [{ identifier: 11 }] }], urlInfoSet: [{ dataSet: 0, dispatcherURL: "CN" }] },
-		KR: { tileSet: [{ style: "MAP", dataSet: 10, validVersion: [{ identifier: 20 }] }], dataSet: [{ identifier: 10 }], urlInfoSet: [{ dataSet: 10, dispatcherURL: "KR" }] },
-	};
-	GEOResourceManifest.compose(target, sources, { TileStyles: { Base: ["BASE"], Map: ["MAP"] } }, { TileSet: { Map: "KR" }, UrlInfoSet: { Dispatcher: "AutoNavi" } }, "US", "ios");
-	assert.deepEqual(target.tileSet.map(tile => tile.validVersion[0].identifier), [11, 20]);
-	assert.deepEqual(target.urlInfoSet.map(row => [row.dataSet, row.dispatcherURL]), [[0, "CN"], [10, "KR"]]);
-	assert.deepEqual(target.dataSet.map(row => row.identifier), [0, 10]);
+	assert.deepEqual(cn.map(row => row.directionsURL.url), ["CN-1", "CN-2"]);
 });
