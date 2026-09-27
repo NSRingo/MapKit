@@ -417,26 +417,14 @@ export default class GEOResourceManifest {
 		Console.log("☑️ Set UrlInfoSets");
 		source = Array.isArray(source) ? source : [];
 		target = Array.isArray(target) ? target : [];
-		let cnURLInfoSet;
-		let xxURLInfoSet;
-		let urlInfoSets;
-		switch (targetCountryCode) {
-			case "CN":
-				cnURLInfoSet = target[0] ?? {};
-				xxURLInfoSet = source[0] ?? {};
-				urlInfoSets = target.map(() => ({ ...xxURLInfoSet, ...cnURLInfoSet }));
-				break;
-			default:
-				cnURLInfoSet = source[0] ?? {};
-				xxURLInfoSet = target[0] ?? {};
-				urlInfoSets = target.map(urlInfoSet => ({ ...cnURLInfoSet, ...(targetCountryCode === "KR" ? urlInfoSet : xxURLInfoSet) }));
-				break;
-		}
-		urlInfoSets = urlInfoSets.map((urlInfoSet, index) => {
+		let cnURLInfoSet = (targetCountryCode === "CN" ? target : source)[0] ?? {};
+		let xxURLInfoSet = (targetCountryCode === "CN" ? source : target)[0] ?? {};
+		const urlInfoSets = target.map(urlInfoSet => {
 			if (targetCountryCode === "KR") {
-				cnURLInfoSet = source.find(item => item.dataSet === target[index].dataSet) ?? source[0] ?? {};
-				xxURLInfoSet = target[index];
+				cnURLInfoSet = source.find(item => item.dataSet === urlInfoSet.dataSet) ?? source[0] ?? {};
+				xxURLInfoSet = urlInfoSet;
 			}
+			urlInfoSet = targetCountryCode === "CN" ? { ...xxURLInfoSet, ...cnURLInfoSet } : { ...cnURLInfoSet, ...xxURLInfoSet };
 			switch (settings.Config?.Announcements?.Environment ?? settings.Config?.Announcements?.["Environment:"]?.default ?? settings.Config?.Announcements?.["Environment:"]) {
 				case "AUTO":
 				default:

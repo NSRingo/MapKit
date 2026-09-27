@@ -204,16 +204,17 @@ test("missing or incomplete Munin source keeps native tiles and buckets", () => 
 	}
 });
 
-test("KR provider overrides use the matching dataset", () => {
+test("KR URL defaults and provider overrides use the matching dataset", () => {
 	const source = [2, 1].map(dataSet => ({
-		dataSet, directionsURL: { url: `CN-${dataSet}` },
+		dataSet, resourcesURL: { url: `CN-${dataSet}` }, directionsURL: { url: `CN-${dataSet}` },
 	}));
 	const target = [
 		{ dataSet: 1, directionsURL: { url: "KR-1" } },
-		{ dataSet: 2, directionsURL: { url: "KR-2" } },
+		{ dataSet: 2, resourcesURL: { url: "KR-2" }, directionsURL: { url: "KR-2" } },
 	];
 	const settings = { UrlInfoSet: { Directions: "Apple" } };
 	const native = GEOResourceManifest.urlInfoSets(source, target, settings, "KR", "ios");
+	assert.deepEqual(native.map(row => row.resourcesURL.url), ["CN-1", "KR-2"]);
 	assert.deepEqual(native.map(row => row.directionsURL.url), ["KR-1", "KR-2"]);
 	settings.UrlInfoSet.Directions = "AutoNavi";
 	const cn = GEOResourceManifest.urlInfoSets(source, target, settings, "KR", "ios");
