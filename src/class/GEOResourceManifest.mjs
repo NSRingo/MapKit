@@ -172,6 +172,7 @@ export default class GEOResourceManifest {
 					settingCountryCode = "CN";
 					break;
 				case "KR":
+				case "Tmap":
 					settingCountryCode = "KR";
 					break;
 				case "XX":

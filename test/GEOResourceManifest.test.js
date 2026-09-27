@@ -135,6 +135,7 @@ test("tileStyles 按源地区与设置选择配置分组", () => {
 
 	assert.deepEqual(GEOResourceManifest.tileStyles(configs, settings, "CN"), ["BASE", "MAP", "SATELLITE_3D"]);
 	assert.deepEqual(GEOResourceManifest.tileStyles(configs, settings, "XX"), ["BASE", "SATELLITE_2D"]);
+	assert.deepEqual(GEOResourceManifest.tileStyles(configs, { TileSet: { Map: "Tmap" } }, "KR", false), ["MAP"]);
 	assert.deepEqual(GEOResourceManifest.tileStyles(configs, {}, "CN"), ["BASE"]);
 	assert.deepEqual(GEOResourceManifest.tileStyles(configs, {}, "XX"), ["BASE", "MAP", "SATELLITE_2D", "SATELLITE_3D"]);
 });
