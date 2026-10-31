@@ -27,6 +27,5 @@ jobs:
           body_path: CHANGELOG.md
           token: ${{ secrets.GITHUB_TOKEN }}
           files: |
-            rulesets/*
             dist/*
           make_latest: "true"

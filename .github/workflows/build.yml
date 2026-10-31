@@ -8,28 +8,118 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  scripts:
+    name: Build Scripts
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-      - name: Update Package Version from Tag
+        with:
+          ref: ${{ github.sha }}
+      - name: Setup Node and Dependencies
+        uses: ./.github/actions/setup-node
+        with:
+          package-token: ${{ secrets.PACKAGE_TOKEN }}
+      - name: Set Package Version from Tag
         if: github.ref_type == 'tag'
         uses: BellCubeDev/update-package-version-by-release-tag@v2
         with:
           version: ${{ github.ref_name }}
-          keep-v: "false" # If set to "true", will not remove any 'v' prefix from the version number.
-          ignore-semver-check: "false" # If set to "true", will not check if the version number is a valid semver version.
-      - name: Run Build Pipeline
-        uses: ./.github/actions/node-build
+          keep-v: "false"
+          ignore-semver-check: "false"
+      - name: Build Scripts
+        run: npm run build
+      - name: Verify Script Bundles
+        run: |
+          test -s dist/request.bundle.js
+          test -s dist/response.bundle.js
+      - name: Upload Script Bundles
+        uses: actions/upload-artifact@v4
+        with:
+          name: scripts
+          path: dist
+          if-no-files-found: error
+
+  modules:
+    name: Generate Modules
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Setup Node and Dependencies
+        uses: ./.github/actions/setup-node
         with:
           package-token: ${{ secrets.PACKAGE_TOKEN }}
-          build-command: npm run build
-          extra-command: npm run build:args
-      - name: Upload Build Artifact
+      - name: Set Package Version from Tag
+        if: github.ref_type == 'tag'
+        uses: BellCubeDev/update-package-version-by-release-tag@v2
+        with:
+          version: ${{ github.ref_name }}
+          keep-v: "false"
+          ignore-semver-check: "false"
+      - name: Disable AppArmor for Chrome
+        run: echo 0 | sudo tee /proc/sys/kernel/apparmor_restrict_unprivileged_userns
+      - name: Install Puppeteer Chrome
+        run: |
+          node node_modules/puppeteer/install.mjs
+          node --input-type=module -e 'import puppeteer from "puppeteer"; console.log(puppeteer.executablePath())'
+        env:
+          PUPPETEER_CACHE_DIR: ${{ runner.temp }}/puppeteer
+      - name: Generate Modules
+        run: npm run build:args
+        env:
+          PUPPETEER_CACHE_DIR: ${{ runner.temp }}/puppeteer
+      - name: Verify Generated Modules
+        run: |
+          test -s dist/iRingo.MapKit.sgmodule
+          test -s dist/iRingo.MapKit.plugin
+          test -s dist/iRingo.MapKit.snippet
+          test -s dist/iRingo.MapKit.stoverride
+          test -s dist/iRingo.MapKit.yaml
+          test -s template/boxjs.settings.json
+      - name: Upload Modules
+        uses: actions/upload-artifact@v4
+        with:
+          name: modules
+          path: dist
+          if-no-files-found: error
+
+  package:
+    name: Assemble Artifact
+    needs: [scripts, modules]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Download Script Bundles
+        uses: actions/download-artifact@v4
+        with:
+          name: scripts
+          path: dist
+      - name: Download Modules
+        uses: actions/download-artifact@v4
+        with:
+          name: modules
+          path: dist
+      - name: Verify Complete Artifact
+        run: |
+          test -s dist/request.bundle.js
+          test -s dist/response.bundle.js
+          for file in dist/iRingo.MapKit.sgmodule dist/iRingo.MapKit.plugin dist/iRingo.MapKit.snippet dist/iRingo.MapKit.stoverride dist/iRingo.MapKit.yaml; do
+            test -s "$file"
+            grep -Fq "https://github.com/NSRingo/GeoServices/releases/download/v" "$file"
+            grep -Fq "request.bundle.js" "$file"
+            grep -Fq "response.bundle.js" "$file"
+          done
+      - name: Upload Complete Artifact
         uses: actions/upload-artifact@v4
         with:
           name: artifact
+          if-no-files-found: error
           path: |
             CHANGELOG.md
             dist
